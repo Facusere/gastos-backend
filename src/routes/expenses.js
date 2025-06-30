@@ -4,19 +4,25 @@ const supabase = require('../db/supabase');
 const expenseSchema = require('../db/expenseSchema');
 
 // GET /api/expenses?category=...&month=...
-router.get('/', async (req, res) => {
-  try {
-    const { category, month } = req.query;
-    let query = supabase.from('expenses').select('*');
-    if (category) query = query.eq('categoria', category);
-    if (month) query = query.ilike('fecha', `${month}-%`); // month: YYYY-MM
-    const { data, error } = await query.order('fecha', { ascending: false });
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+router.get('/reports/monthly', async (req, res) => {
+  const { month } = req.query;
+  if (!month) return res.status(400).json({ error: 'Falta el parámetro "month"' });
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .select('categoria, monto')
+    .like('fecha', `${month}%`);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const resumen = data.reduce((acc, gasto) => {
+    acc[gasto.categoria] = (acc[gasto.categoria] || 0) + parseFloat(gasto.monto);
+    return acc;
+  }, {});
+
+  res.json(resumen);
 });
+
 
 // GET /api/expenses/:id
 router.get('/:id', async (req, res) => {

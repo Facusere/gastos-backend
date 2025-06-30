@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const expensesRouter = require('./routes/expenses');
 const reportsRouter = require('./routes/reports');
+const authRouter = require('./routes/auth');
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.json());
 
 app.use('/api/expenses', expensesRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/auth', authRouter);
 
 app.use((err, req, res, next) => {
   console.error(err);
