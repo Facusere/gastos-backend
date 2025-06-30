@@ -3,7 +3,10 @@ const router = express.Router();
 const supabase = require('../db/supabase');
 const expenseSchema = require('../db/expenseSchema');
 
-// GET /api/expenses?category=...&month=...
+// ✅ Categorías válidas
+const CATEGORIAS_VALIDAS = ['Alimentación', 'Transporte', 'Compras', 'Salud', 'Otra'];
+
+// GET /api/expenses/reports/monthly?month=YYYY-MM
 router.get('/reports/monthly', async (req, res) => {
   const { month } = req.query;
   if (!month) return res.status(400).json({ error: 'Falta el parámetro "month"' });
@@ -23,7 +26,6 @@ router.get('/reports/monthly', async (req, res) => {
   res.json(resumen);
 });
 
-
 // GET /api/expenses/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -42,6 +44,13 @@ router.post('/', async (req, res) => {
   try {
     const { error: validationError } = expenseSchema.validate(req.body);
     if (validationError) return res.status(400).json({ error: validationError.details[0].message });
+
+    // ✅ Validar categoría
+    const { categoria } = req.body;
+    if (!CATEGORIAS_VALIDAS.includes(categoria)) {
+      return res.status(400).json({ error: 'Categoría inválida' });
+    }
+
     const { data, error } = await supabase.from('expenses').insert([{ ...req.body }]).select().single();
     if (error) throw error;
     res.status(201).json(data);
@@ -55,8 +64,21 @@ router.put('/:id', async (req, res) => {
   try {
     const { error: validationError } = expenseSchema.validate(req.body);
     if (validationError) return res.status(400).json({ error: validationError.details[0].message });
+
+    // ✅ Validar categoría
+    const { categoria } = req.body;
+    if (categoria && !CATEGORIAS_VALIDAS.includes(categoria)) {
+      return res.status(400).json({ error: 'Categoría inválida' });
+    }
+
     const { id } = req.params;
-    const { data, error } = await supabase.from('expenses').update({ ...req.body }).eq('id', id).select().single();
+    const { data, error } = await supabase
+      .from('expenses')
+      .update({ ...req.body })
+      .eq('id', id)
+      .select()
+      .single();
+
     if (error) throw error;
     res.json(data);
   } catch (err) {
@@ -71,6 +93,27 @@ router.delete('/:id', async (req, res) => {
     const { error } = await supabase.from('expenses').delete().eq('id', id);
     if (error) throw error;
     res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/expenses
+router.get('/', async (req, res) => {
+  try {
+    const { month, category } = req.query;
+    let query = supabase.from('expenses').select('*');
+
+    if (month) {
+      query = query.like('fecha', `${month}%`);
+    }
+    if (category && category !== 'Todas') {
+      query = query.eq('categoria', category);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
