@@ -11,19 +11,28 @@ router.get('/reports/monthly', async (req, res) => {
   const { month } = req.query;
   if (!month) return res.status(400).json({ error: 'Falta el parámetro "month"' });
 
-  const { data, error } = await supabase
-    .from('expenses')
-    .select('categoria, monto')
-    .like('fecha', `${month}%`);
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('categoria, monto')
+      .like('fecha', `${month}%`);
 
-  if (error) return res.status(500).json({ error: error.message });
+    if (error) return res.status(500).json({ error: error.message });
 
-  const resumen = data.reduce((acc, gasto) => {
-    acc[gasto.categoria] = (acc[gasto.categoria] || 0) + parseFloat(gasto.monto);
-    return acc;
-  }, {});
+    // Si no hay datos, devolver objeto vacío
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return res.json({});
+    }
 
-  res.json(resumen);
+    const resumen = data.reduce((acc, gasto) => {
+      acc[gasto.categoria] = (acc[gasto.categoria] || 0) + parseFloat(gasto.monto);
+      return acc;
+    }, {});
+
+    res.json(resumen);
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno en el reporte mensual.' });
+  }
 });
 
 // GET /api/expenses/:id
